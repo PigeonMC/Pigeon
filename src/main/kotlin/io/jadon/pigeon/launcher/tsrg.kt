@@ -47,7 +47,7 @@ object TSrgUtil {
                         // method
                         val obf = parts[0]
                         val obfSig = parts[1]
-                        val deobf = parts[1]
+                        val deobf = parts[2]
                         currentClass!!.methods.add(Method(obf, obfSig, deobf))
                     }
                     else -> throw RuntimeException("Parse error on line $index: too many parts")
