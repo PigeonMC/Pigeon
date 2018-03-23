@@ -16,11 +16,26 @@ apply plugin: 'kotlin'
 
 repositories {
     mavenCentral()
+    maven {
+        name = "mikroskeem"
+        url "https://repo.wut.ee/repository/mikroskeem-repo"
+    }
+
+    maven {
+        name = 'sponge'
+        url = 'http://repo.spongepowered.org/maven'
+    }
 }
 
 dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
     compile "net.md-5:SpecialSource:1.8.2"
+    compile("eu.mikroskeem:legacylauncher:1.18") {
+        exclude group: "org.ow2.asm", module: "asm-all"
+    }
+    compile "org.spongepowered:mixin:0.7.7-SNAPSHOT"
+    compile "org.ow2.asm:asm-commons:6.0"
+    compile "org.apache.logging.log4j:log4j-core:2.11.0"
 }
 
 compileKotlin {

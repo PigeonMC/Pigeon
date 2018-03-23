@@ -4,6 +4,11 @@ import net.md_5.specialsource.Jar
 import net.md_5.specialsource.JarMapping
 import net.md_5.specialsource.JarRemapper
 import net.md_5.specialsource.provider.JointProvider
+import net.minecraft.launchwrapper.ITweaker
+import net.minecraft.launchwrapper.Launch
+import net.minecraft.launchwrapper.LaunchClassLoader
+import org.spongepowered.asm.launch.MixinBootstrap
+import org.spongepowered.asm.mixin.MixinEnvironment
 import java.io.File
 import java.net.URL
 import java.nio.file.Files
@@ -23,6 +28,10 @@ object PigeonLauncher {
         val workDirectory = "build/minecraft/"
         JarManager.downloadVanilla("$workDirectory/minecraft.jar")
         JarManager.remapJar("$workDirectory/minecraft.jar", generatedSrgFile.path)
+
+        println("hey no errors remapping!")
+
+        Bootstrap.init()
     }
 
 }
@@ -34,6 +43,7 @@ object JarManager {
     fun downloadVanilla(destinationFile: String) {
         val path = Paths.get(destinationFile)
         path.parent.toFile().mkdirs()
+        if (path.toFile().isFile) path.toFile().delete()
         downloadUrl.openStream().use { Files.copy(it, path) }
     }
 
@@ -50,5 +60,28 @@ object JarManager {
                 Paths.get(destinationFile).parent.resolve("minecraft_mapped.jar").toFile()
         )
     }
+
+}
+
+class Bootstrap : ITweaker {
+    companion object {
+        val LAUNCH_TARGET = "net.minecraft.client.Minecraft"
+
+        @JvmStatic
+        fun init() {
+            Launch.main(arrayOf("--tweakClass", Bootstrap::class.java.name))
+        }
+    }
+
+    override fun getLaunchTarget(): String = LAUNCH_TARGET
+
+    override fun injectIntoClassLoader(classLoader: LaunchClassLoader) {
+        MixinBootstrap.init()
+        MixinEnvironment.getDefaultEnvironment().side = MixinEnvironment.Side.CLIENT
+    }
+
+    override fun getLaunchArguments(): Array<String> = arrayOf()
+
+    override fun acceptOptions(args: List<String>) {}
 
 }
