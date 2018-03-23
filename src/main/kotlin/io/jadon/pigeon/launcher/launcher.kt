@@ -13,8 +13,11 @@ import java.io.File
 import java.net.URL
 import java.nio.file.Files
 import java.nio.file.Paths
+import java.util.logging.Logger
 
 object PigeonLauncher {
+
+    val Log = Logger.getLogger("Pigeon")
 
     @JvmStatic
     fun main(args: Array<String>) {
@@ -43,11 +46,15 @@ object JarManager {
     fun downloadVanilla(destinationFile: String) {
         val path = Paths.get(destinationFile)
         path.parent.toFile().mkdirs()
-        if (path.toFile().isFile) path.toFile().delete()
-        downloadUrl.openStream().use { Files.copy(it, path) }
+        if (!path.toFile().isFile) {
+            downloadUrl.openStream().use { Files.copy(it, path) }
+        }
     }
 
     fun remapJar(destinationFile: String, srgFile: String) {
+        val destination = Paths.get(destinationFile).parent.resolve("minecraft_mapped.jar").toFile()
+        if (destination.exists()) return
+
         val jarMapping = JarMapping()
         jarMapping.loadMappings(srgFile, false, false, null, null)
 
@@ -57,7 +64,7 @@ object JarManager {
         val jarRemapper = JarRemapper(jarMapping)
         jarRemapper.remapJar(
                 Jar.init(File(destinationFile)),
-                Paths.get(destinationFile).parent.resolve("minecraft_mapped.jar").toFile()
+                destination
         )
     }
 
@@ -69,6 +76,7 @@ class Bootstrap : ITweaker {
 
         @JvmStatic
         fun init() {
+            PigeonLauncher.Log.info("Starting LegacyLauncher")
             Launch.main(arrayOf("--tweakClass", Bootstrap::class.java.name))
         }
     }
@@ -76,8 +84,12 @@ class Bootstrap : ITweaker {
     override fun getLaunchTarget(): String = LAUNCH_TARGET
 
     override fun injectIntoClassLoader(classLoader: LaunchClassLoader) {
+        PigeonLauncher.Log.info("Initializing Mixins")
         MixinBootstrap.init()
         MixinEnvironment.getDefaultEnvironment().side = MixinEnvironment.Side.CLIENT
+
+        // TODO: Extract to global variable
+        classLoader.addURL(Paths.get("build/minecraft/minecraft.jar").toUri().toURL())
     }
 
     override fun getLaunchArguments(): Array<String> = arrayOf()

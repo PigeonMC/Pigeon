@@ -36,6 +36,14 @@ dependencies {
     compile "org.spongepowered:mixin:0.7.7-SNAPSHOT"
     compile "org.ow2.asm:asm-commons:6.0"
     compile "org.apache.logging.log4j:log4j-core:2.11.0"
+
+    // Minecraft dependencies
+    def lwjglVersion = "2.9.3"
+    compile "org.lwjgl.lwjgl:lwjgl:${lwjglVersion}"
+    compile "org.lwjgl.lwjgl:lwjgl_util:${lwjglVersion}"
+    compile "org.lwjgl.lwjgl:lwjgl-platform:${lwjglVersion}:natives-windows"
+    compile "org.lwjgl.lwjgl:lwjgl-platform:${lwjglVersion}:natives-linux"
+    compile "org.lwjgl.lwjgl:lwjgl-platform:${lwjglVersion}:natives-osx"
 }
 
 compileKotlin {
