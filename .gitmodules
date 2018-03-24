@@ -1,3 +1,6 @@
 [submodule "mappings"]
 	path = mappings
 	url = git@github.com:PigeonMC/BetaMappings.git
+[submodule "Mixin"]
+	path = Mixin
+	url = git@github.com:PigeonMC/Mixin.git

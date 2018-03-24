@@ -4,6 +4,6 @@
   "target": "@env(DEFAULT)",
   "compatibilityLevel": "JAVA_8",
   "client": [
-    "MixinMinecraft"
+    "MixinMinecraft2"
   ]
 }
