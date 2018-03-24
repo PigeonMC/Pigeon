@@ -32,9 +32,9 @@ object TSrgUtil {
 
         // parse the lines
         lines.forEachIndexed { index, line ->
-            if (line.startsWith("\t")) {
+            if (line.startsWith("\t") || line.startsWith(" ")) {
                 if (currentClass == null) throw RuntimeException("Parse error on line $index: no class")
-                val l = line.substring(1, line.length) // get rid of tab
+                val l = line.trim()
                 val parts = l.split(" ")
                 when (parts.size) {
                     2 -> {
