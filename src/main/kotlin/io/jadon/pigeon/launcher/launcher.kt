@@ -21,51 +21,8 @@ object PigeonLauncher {
 
     @JvmStatic
     fun main(args: Array<String>) {
-        val srgFile = File("mappings/client.srg")
-        val tsrgFile = File("mappings/client.tsrg")
-        val generatedSrgFile = File("mappings/client_generated.srg")
-
-        TSrgUtil.fromSrg(srgFile, tsrgFile)
-        TSrgUtil.toSrg(tsrgFile, generatedSrgFile)
-
-        val workDirectory = "build/minecraft/"
-        JarManager.downloadVanilla("$workDirectory/minecraft.jar")
-        JarManager.remapJar("$workDirectory/minecraft.jar", generatedSrgFile.path)
-
-        println("hey no errors remapping!")
-
+        Log.info("Starting Pigeon")
         Bootstrap.init()
-    }
-
-}
-
-object JarManager {
-
-    val downloadUrl = URL("http://s3.amazonaws.com/Minecraft.Download/versions/b1.7.3/b1.7.3.jar")
-
-    fun downloadVanilla(destinationFile: String) {
-        val path = Paths.get(destinationFile)
-        path.parent.toFile().mkdirs()
-        if (!path.toFile().isFile) {
-            downloadUrl.openStream().use { Files.copy(it, path) }
-        }
-    }
-
-    fun remapJar(destinationFile: String, srgFile: String) {
-        val destination = Paths.get(destinationFile).parent.resolve("minecraft_mapped.jar").toFile()
-        if (destination.exists()) return
-
-        val jarMapping = JarMapping()
-        jarMapping.loadMappings(srgFile, false, false, null, null)
-
-        val inheritanceProviders = JointProvider()
-        jarMapping.setFallbackInheritanceProvider(inheritanceProviders)
-
-        val jarRemapper = JarRemapper(jarMapping)
-        jarRemapper.remapJar(
-                Jar.init(File(destinationFile)),
-                destination
-        )
     }
 
 }
@@ -73,6 +30,8 @@ object JarManager {
 class Bootstrap : ITweaker {
     companion object {
         val LAUNCH_TARGET = "net.minecraft.client.Minecraft"
+        // TODO: get this from Gradle?
+        val LOCATION_OF_LOCAL_MAPPED_MINECRAFT = "build/minecraft/minecraft_mapped.jar"
 
         @JvmStatic
         fun init() {
@@ -88,8 +47,7 @@ class Bootstrap : ITweaker {
         MixinBootstrap.init()
         MixinEnvironment.getDefaultEnvironment().side = MixinEnvironment.Side.CLIENT
 
-        // TODO: Extract to global variable
-        classLoader.addURL(Paths.get("build/minecraft/minecraft.jar").toUri().toURL())
+        classLoader.addURL(Paths.get(LOCATION_OF_LOCAL_MAPPED_MINECRAFT).toUri().toURL())
     }
 
     override fun getLaunchArguments(): Array<String> = arrayOf()

@@ -1,4 +1,4 @@
-package io.jadon.pigeon.launcher
+package io.jadon.pigeon
 
 import java.io.File
 

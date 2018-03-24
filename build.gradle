@@ -13,6 +13,7 @@ group 'io.jadon.pigeon'
 version '0.0.0'
 
 apply plugin: 'kotlin'
+apply plugin: 'map-minecraft'
 
 repositories {
     mavenCentral()
@@ -27,13 +28,17 @@ repositories {
     }
 }
 
+def minecraft_mapped = "build/minecraft/minecraft_mapped.jar"
+
 dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
     compile "net.md-5:SpecialSource:1.8.2"
     compile("eu.mikroskeem:legacylauncher:1.18") {
         exclude group: "org.ow2.asm", module: "asm-all"
     }
-    compile "org.spongepowered:mixin:0.7.7-SNAPSHOT"
+    compile ("org.spongepowered:mixin:0.7.7-SNAPSHOT") {
+        exclude group: "net.minecraft", module: "launchwrapper"
+    }
     compile "org.ow2.asm:asm-commons:6.0"
     compile "org.apache.logging.log4j:log4j-core:2.11.0"
 
@@ -44,6 +49,8 @@ dependencies {
     compile "org.lwjgl.lwjgl:lwjgl-platform:${lwjglVersion}:natives-windows"
     compile "org.lwjgl.lwjgl:lwjgl-platform:${lwjglVersion}:natives-linux"
     compile "org.lwjgl.lwjgl:lwjgl-platform:${lwjglVersion}:natives-osx"
+
+    compileOnly files(minecraft_mapped)
 }
 
 compileKotlin {
@@ -52,3 +59,12 @@ compileKotlin {
 compileTestKotlin {
     kotlinOptions.jvmTarget = "1.8"
 }
+
+mapMinecraft {
+    tsrgFile = "mappings/client.tsrg"
+    unmappedJar = "build/minecraft/minecraft.jar"
+    mappedJar = minecraft_mapped
+    force = true
+}
+
+compileKotlin.dependsOn mapMinecraft

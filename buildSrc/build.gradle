@@ -1,0 +1,27 @@
+buildscript {
+    ext.kotlin_version = "1.2.0"
+
+    repositories {
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+    }
+}
+
+plugins {
+    id 'java-gradle-plugin'
+    id "org.jetbrains.kotlin.jvm" version "1.2.30"
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile gradleApi()
+    compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
+    compile "net.md-5:SpecialSource:1.8.2"
+}
+
