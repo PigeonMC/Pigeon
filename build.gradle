@@ -60,7 +60,7 @@ compileTestKotlin {
     kotlinOptions.jvmTarget = "1.8"
 }
 
-mapMinecraft {
+minecraftData {
     tsrgFile = "mappings/client.tsrg"
     unmappedJar = "build/minecraft/minecraft.jar"
     mappedJar = minecraft_mapped

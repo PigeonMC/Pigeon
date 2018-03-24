@@ -3,6 +3,7 @@ package io.jadon.pigeon
 import net.md_5.specialsource.Jar
 import net.md_5.specialsource.JarMapping
 import net.md_5.specialsource.JarRemapper
+import net.md_5.specialsource.provider.JarProvider
 import net.md_5.specialsource.provider.JointProvider
 import java.io.File
 import java.net.URL
@@ -27,16 +28,15 @@ object JarManager {
 
         val jarMapping = JarMapping()
         jarMapping.loadMappings(srgFile, false, false, null, null)
-        jarMapping.classes.forEach { t, u -> println("Found class mappings: $t $u") }
 
         val inheritanceProviders = JointProvider()
         jarMapping.setFallbackInheritanceProvider(inheritanceProviders)
 
+        val jar = Jar.init(File(vanillaFile))
+
+        inheritanceProviders.add(JarProvider(jar))
         val jarRemapper = JarRemapper(jarMapping)
-        jarRemapper.remapJar(
-                Jar.init(File(vanillaFile)),
-                destination
-        )
+        jarRemapper.remapJar(jar, destination)
     }
 
 }

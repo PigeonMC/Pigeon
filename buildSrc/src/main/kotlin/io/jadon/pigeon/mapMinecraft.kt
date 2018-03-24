@@ -8,7 +8,7 @@ import java.io.File
 
 open class MapMinecraftPlugin : Plugin<Project> {
     override fun apply(project: Project) {
-        project.extensions.add("mapMinecraft", MapMinecraftExtension::class.java)
+        project.extensions.add("minecraftData", MapMinecraftExtension::class.java)
         project.tasks.create("mapMinecraft", MapMinecraftTask::class.java)
     }
 }

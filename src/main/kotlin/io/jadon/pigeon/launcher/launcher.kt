@@ -1,17 +1,11 @@
 package io.jadon.pigeon.launcher
 
-import net.md_5.specialsource.Jar
-import net.md_5.specialsource.JarMapping
-import net.md_5.specialsource.JarRemapper
-import net.md_5.specialsource.provider.JointProvider
 import net.minecraft.launchwrapper.ITweaker
 import net.minecraft.launchwrapper.Launch
 import net.minecraft.launchwrapper.LaunchClassLoader
 import org.spongepowered.asm.launch.MixinBootstrap
 import org.spongepowered.asm.mixin.MixinEnvironment
-import java.io.File
-import java.net.URL
-import java.nio.file.Files
+import org.spongepowered.asm.mixin.Mixins
 import java.nio.file.Paths
 import java.util.logging.Logger
 
@@ -46,6 +40,7 @@ class Bootstrap : ITweaker {
         PigeonLauncher.Log.info("Initializing Mixins")
         MixinBootstrap.init()
         MixinEnvironment.getDefaultEnvironment().side = MixinEnvironment.Side.CLIENT
+        Mixins.addConfiguration("mixins.pigeon.json")
 
         classLoader.addURL(Paths.get(LOCATION_OF_LOCAL_MAPPED_MINECRAFT).toUri().toURL())
     }
