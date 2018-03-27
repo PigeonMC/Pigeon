@@ -16,7 +16,7 @@ object PigeonLauncher {
     @JvmStatic
     fun main(args: Array<String>) {
         Log.info("Starting Pigeon")
-        launchClient()
+        launchServer()
     }
 
     fun launchClient() {
@@ -46,7 +46,11 @@ class Bootstrap : ITweaker {
         PigeonLauncher.Log.info("Initializing Mixins")
         MixinBootstrap.init()
         MixinEnvironment.getDefaultEnvironment().side = MixinEnvironment.Side.CLIENT
-        Mixins.addConfiguration("mixins.pigeon.json")
+        val configs = listOf(
+                "mixins.pigeon.json",
+                "mixins.pigeon.server.merge.json"
+        )
+        configs.forEach(Mixins::addConfiguration)
 
         // TODO: Load mods here
 

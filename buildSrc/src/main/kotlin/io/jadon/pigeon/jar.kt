@@ -5,10 +5,9 @@ import net.md_5.specialsource.JarMapping
 import net.md_5.specialsource.JarRemapper
 import net.md_5.specialsource.provider.JarProvider
 import net.md_5.specialsource.provider.JointProvider
-import org.objectweb.asm.ClassReader
-import org.objectweb.asm.ClassWriter
-import org.objectweb.asm.Opcodes
+import org.objectweb.asm.*
 import org.objectweb.asm.commons.ClassRemapper
+import org.objectweb.asm.commons.GeneratorAdapter
 import org.objectweb.asm.commons.SimpleRemapper
 import org.objectweb.asm.tree.ClassNode
 import java.io.BufferedOutputStream
@@ -73,7 +72,6 @@ object JarManager {
                 val classWriter = ClassWriter(ClassWriter.COMPUTE_MAXS)
                 val classRemapper = ClassRemapper(classWriter, remapper)
                 classNode.accept(classRemapper)
-                checkAccess(classNode)
 
                 // Add the class to the list to move
                 if (classNode.name == "net/minecraft/server/MinecraftServer") {
@@ -88,24 +86,41 @@ object JarManager {
         }
 
         //  Get client classes
-        val mergedClasses = clientJar.entries().toList().filter { !it.name.contains("META-INF") }.map {
+        val mergedFiles = clientJar.entries().toList().filter { !it.name.contains("META-INF") }.map {
             val inputStream = clientJar.getInputStream(it)
-            if (it.name.endsWith(".class")) {
-                // Make all the classes public
-                val classNode = ClassNode()
-                val classReader = ClassReader(inputStream)
-                classReader.accept(classNode, 0)
-                checkAccess(classNode)
-                val classWriter = ClassWriter(ClassWriter.COMPUTE_MAXS)
-                classNode.accept(classWriter)
-                it.name to classWriter.toByteArray()
-            } else it.name to inputStream.readBytes()
+            it.name to inputStream.readBytes()
         }.toMutableList()
 
         clientJar.close()
 
         // Add remapped server classes
-        mergedClasses.addAll(serverClassesToMove)
+        mergedFiles.addAll(serverClassesToMove)
+
+        val mergedClassNodes = mergedFiles.mapNotNull {
+            if (it.first.endsWith(".class")) {
+                val classNode = ClassNode()
+                val classReader = ClassReader(it.second)
+                classReader.accept(classNode, 0)
+                it.first to classNode
+            } else null
+        }
+
+        val mergedClassBytes = mergedClassNodes.map { (name, classNode) ->
+            val classWriter = ClassWriter(ClassWriter.COMPUTE_MAXS)
+            // Make all the classes public
+            checkAccess(classNode)
+            // Transform constructor calls
+            val constructorRemapper = ConstructorRemapper(mergedClassNodes.map { it.second }, classNode.name, serverToClientMappings, classWriter)
+            classNode.accept(constructorRemapper)
+            name to classWriter.toByteArray()
+        }.toMap()
+
+        // Modify classes to play nicely together
+        val mergedClasses = mergedFiles.map {
+            if (it.first.endsWith(".class"))
+                it.first to mergedClassBytes[it.first]
+            else it
+        }
 
         val mergedJarStream = ZipOutputStream(FileOutputStream(merged))
         val output = BufferedOutputStream(mergedJarStream)
@@ -118,6 +133,83 @@ object JarManager {
         }
         output.close()
         mergedJarStream.close()
+    }
+
+    class ConstructorRemapper(val classNodes: List<ClassNode>, val className: String, val serverToClientMappings: Map<String, String>,
+                              cv: ClassVisitor) : ClassVisitor(Opcodes.ASM6, cv) {
+
+        override fun visitMethod(access: Int, name: String?, desc: String?, signature: String?, exceptions: Array<out String>?): MethodVisitor {
+            return ConstructorCallTransformer(
+                    classNodes, className, serverToClientMappings,
+                    super.visitMethod(access, name, desc, signature, exceptions),
+                    access, name, desc, signature, exceptions)
+        }
+
+    }
+
+    class ConstructorCallTransformer(val classNodes: List<ClassNode>, val className: String, val serverToClientMappings: Map<String, String>,
+                                     delegate: MethodVisitor, access: Int, val name: String?,
+                                     desc: String?, signature: String?, exceptions: Array<out String>?)
+        : GeneratorAdapter(Opcodes.ASM6, delegate, access, name, desc) {
+
+        private val sharedClasses = serverToClientMappings.filter { !(it.value.startsWith("s_")) }
+        private val allocationQueue = mutableListOf<String>()
+        private var found = false
+
+        override fun visitTypeInsn(opcode: Int, type: String?) {
+            if (opcode == Opcodes.NEW && type!!.length > 2 && sharedClasses.containsValue(type.substring(1, type.length - 2))) {
+                allocationQueue.add(type)
+            } else {
+                super.visitTypeInsn(opcode, type)
+            }
+        }
+
+        override fun visitInsn(opcode: Int) {
+//            if (!(opcode == Opcodes.DUP && allocationQueue.isNotEmpty())) {
+//                if (found) {
+            found = false
+//                } else {
+            super.visitInsn(opcode)
+//                }
+//            }
+        }
+
+        override fun visitMethodInsn(opcode: Int, owner: String?, methodCalled: String?, desc: String?, itf: Boolean) {
+            val debug = className.contains("MinecraftServer") && methodCalled == "<init>" && name == "<init>"
+            if (debug) {
+                print("$className#$name: $owner $methodCalled $desc isShared=${sharedClasses.containsValue(owner)} ")
+                if (opcode and Opcodes.INVOKEVIRTUAL == Opcodes.INVOKEVIRTUAL) print("VIRTUAL")
+                if (opcode and Opcodes.INVOKESTATIC == Opcodes.INVOKESTATIC) print("STATIC")
+                println()
+            }
+
+            if (classNodes.filter { it.name == owner }.filter { it.methods.filter { it.name == "<init>" && it.desc == desc!! }.isEmpty() }.isNotEmpty()
+                    && sharedClasses.containsValue(owner)
+                    && opcode and Opcodes.INVOKEVIRTUAL == Opcodes.INVOKEVIRTUAL
+                    && methodCalled == "<init>") {
+                if (debug) {
+                    println("Found it")
+                }
+
+                if (allocationQueue.isNotEmpty()) {
+                    super.visitTypeInsn(Opcodes.NEW, allocationQueue.removeAt(0))
+                    super.visitInsn(Opcodes.DUP)
+                }
+                super.visitMethodInsn(opcode, owner, methodCalled, desc, itf)
+//                super.visitLdcInsn(Type.getType("L$owner;"))
+//                super.visitMethodInsn(Opcodes.INVOKESTATIC, "io/jadon/pigeon/mixin/JvmUtil", "getUnsafeInstance", "(Ljava/lang/Class;)Ljava/lang/Object;", false)
+//                super.visitTypeInsn(Opcodes.CHECKCAST, owner)
+//                super.visitMethodInsn(Opcodes.INVOKESTATIC, owner, "serverInit", "(L$owner;${desc!!.substring(1)}", itf)
+                found = true
+            } else {
+                if (allocationQueue.isNotEmpty()) {
+                    super.visitTypeInsn(Opcodes.NEW, allocationQueue.removeAt(0))
+                    super.visitInsn(Opcodes.DUP)
+                }
+                super.visitMethodInsn(opcode, owner, methodCalled, desc, itf)
+            }
+        }
+
     }
 
     fun remapJar(vanillaFile: String, mappedFile: String, srgFile: String) {
