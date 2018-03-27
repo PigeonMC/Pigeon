@@ -16,22 +16,28 @@ object PigeonLauncher {
     @JvmStatic
     fun main(args: Array<String>) {
         Log.info("Starting Pigeon")
-        Bootstrap.init()
+        launchClient()
+    }
+
+    fun launchClient() {
+        PigeonLauncher.Log.info("Starting Client in LegacyLauncher")
+        Bootstrap.LAUNCH_TARGET = "net.minecraft.client.Minecraft"
+        Launch.main(arrayOf("--tweakClass", Bootstrap::class.java.name))
+    }
+
+    fun launchServer() {
+        PigeonLauncher.Log.info("Starting Server in LegacyLauncher")
+        Bootstrap.LAUNCH_TARGET = "net.minecraft.server.MinecraftServer"
+        Launch.main(arrayOf("--tweakClass", Bootstrap::class.java.name))
     }
 
 }
 
 class Bootstrap : ITweaker {
     companion object {
-        val LAUNCH_TARGET = "net.minecraft.client.Minecraft"
+        var LAUNCH_TARGET = "null (user needs to set this)"
         // TODO: get this from Gradle?
         val LOCATION_OF_LOCAL_MAPPED_MINECRAFT = "build/minecraft/minecraft_merged_mapped.jar"
-
-        @JvmStatic
-        fun init() {
-            PigeonLauncher.Log.info("Starting LegacyLauncher")
-            Launch.main(arrayOf("--tweakClass", Bootstrap::class.java.name))
-        }
     }
 
     override fun getLaunchTarget(): String = LAUNCH_TARGET
@@ -41,6 +47,8 @@ class Bootstrap : ITweaker {
         MixinBootstrap.init()
         MixinEnvironment.getDefaultEnvironment().side = MixinEnvironment.Side.CLIENT
         Mixins.addConfiguration("mixins.pigeon.json")
+
+        // TODO: Load mods here
 
         classLoader.addURL(Paths.get(LOCATION_OF_LOCAL_MAPPED_MINECRAFT).toUri().toURL())
     }

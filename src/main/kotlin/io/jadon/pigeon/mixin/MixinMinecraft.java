@@ -11,4 +11,5 @@ public abstract class MixinMinecraft implements Runnable {
     public static void main(String[] args) {
         System.out.println("Minecraft.main() has been OVERWRITTEN");
     }
+
 }

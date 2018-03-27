@@ -3,7 +3,8 @@
   "package": "io.jadon.pigeon.mixin",
   "target": "@env(DEFAULT)",
   "compatibilityLevel": "JAVA_8",
-  "client": [
-    "MixinMinecraft"
+  "mixins": [
+    "MixinMinecraft",
+    "MixinMinecraftServer"
   ]
 }

@@ -7,6 +7,7 @@ import net.md_5.specialsource.provider.JarProvider
 import net.md_5.specialsource.provider.JointProvider
 import org.objectweb.asm.ClassReader
 import org.objectweb.asm.ClassWriter
+import org.objectweb.asm.Opcodes
 import org.objectweb.asm.commons.ClassRemapper
 import org.objectweb.asm.commons.SimpleRemapper
 import org.objectweb.asm.tree.ClassNode
@@ -39,6 +40,24 @@ object JarManager {
         val mappedServerOnlyClasses = serverOnlyClasses.map { serverToClientMappings[it] }
         val serverClassesToMove = mutableListOf<Pair<String, ByteArray>>()
 
+        /**
+         * Transform the access for all protected/package-private entities to public.
+         */
+        fun checkAccess(classNode: ClassNode) {
+            val acc = classNode.access
+            classNode.access = acc or Opcodes.ACC_PUBLIC
+            classNode.methods.filter { it.name == "<init>" }.forEach {
+                if (it.access and Opcodes.ACC_PUBLIC != Opcodes.ACC_PUBLIC && it.access and Opcodes.ACC_PRIVATE != Opcodes.ACC_PRIVATE) {
+                    it.access = (it.access and 0xFFFF8) or Opcodes.ACC_PUBLIC
+                }
+            }
+            classNode.fields.forEach {
+                if (it.access and Opcodes.ACC_PUBLIC != Opcodes.ACC_PUBLIC && it.access and Opcodes.ACC_PRIVATE != Opcodes.ACC_PRIVATE) {
+                    it.access = (it.access and 0xFFFF8) or Opcodes.ACC_PUBLIC
+                }
+            }
+        }
+
         val entries = serverJar.entries()
         while (entries.hasMoreElements()) {
             val entry = entries.nextElement()
@@ -54,6 +73,7 @@ object JarManager {
                 val classWriter = ClassWriter(ClassWriter.COMPUTE_MAXS)
                 val classRemapper = ClassRemapper(classWriter, remapper)
                 classNode.accept(classRemapper)
+                checkAccess(classNode)
 
                 // Add the class to the list to move
                 if (classNode.name == "net/minecraft/server/MinecraftServer") {
@@ -69,7 +89,17 @@ object JarManager {
 
         //  Get client classes
         val mergedClasses = clientJar.entries().toList().filter { !it.name.contains("META-INF") }.map {
-            it.name to clientJar.getInputStream(it).readBytes()
+            val inputStream = clientJar.getInputStream(it)
+            if (it.name.endsWith(".class")) {
+                // Make all the classes public
+                val classNode = ClassNode()
+                val classReader = ClassReader(inputStream)
+                classReader.accept(classNode, 0)
+                checkAccess(classNode)
+                val classWriter = ClassWriter(ClassWriter.COMPUTE_MAXS)
+                classNode.accept(classWriter)
+                it.name to classWriter.toByteArray()
+            } else it.name to inputStream.readBytes()
         }.toMutableList()
 
         clientJar.close()
@@ -81,7 +111,6 @@ object JarManager {
         val output = BufferedOutputStream(mergedJarStream)
 
         mergedClasses.forEach {
-            //            println("Creating zip entry for ${it.first}")
             mergedJarStream.putNextEntry(JarEntry(it.first))
             output.write(it.second)
             output.flush()

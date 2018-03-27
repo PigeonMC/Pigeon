@@ -7,8 +7,8 @@ object TSrgUtil {
     // these classes are using data based on the TSRG format, not the SRG format
 
     data class Clazz(val obf: String, val deobf: String,
-                             val fields: MutableList<Field> = mutableListOf(),
-                             val methods: MutableList<Method> = mutableListOf()) {
+                     val fields: MutableList<Field> = mutableListOf(),
+                     val methods: MutableList<Method> = mutableListOf()) {
         override fun toString(): String = "$obf $deobf"
     }
 
@@ -60,6 +60,9 @@ object TSrgUtil {
                     else -> throw RuntimeException("Parse error on line $index: class definition has too many parts")
                 }
             }
+        }
+        currentClass?.let {
+            if (!classes.contains(it)) classes.add(it)
         }
         return classes
     }
