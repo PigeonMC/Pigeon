@@ -25,7 +25,7 @@ class Bootstrap : ITweaker {
     companion object {
         val LAUNCH_TARGET = "net.minecraft.client.Minecraft"
         // TODO: get this from Gradle?
-        val LOCATION_OF_LOCAL_MAPPED_MINECRAFT = "build/minecraft/minecraft_mapped.jar"
+        val LOCATION_OF_LOCAL_MAPPED_MINECRAFT = "build/minecraft/minecraft_merged_mapped.jar"
 
         @JvmStatic
         fun init() {

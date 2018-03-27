@@ -28,7 +28,7 @@ repositories {
     }
 }
 
-def minecraft_mapped = "build/minecraft/minecraft_mapped.jar"
+def minecraft_mapped = "build/minecraft/minecraft_merged_mapped.jar"
 
 dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
@@ -61,10 +61,8 @@ compileTestKotlin {
 }
 
 minecraftData {
+    serverToClientObf = "mappings/serverToClientObf.tsrg"
     tsrgFile = "mappings/client.tsrg"
-    unmappedJar = "build/minecraft/minecraft.jar"
-    mappedJar = minecraft_mapped
-    force = true
 }
 
 compileKotlin.dependsOn mapMinecraft

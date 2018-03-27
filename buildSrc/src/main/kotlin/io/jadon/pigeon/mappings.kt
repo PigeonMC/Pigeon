@@ -6,33 +6,28 @@ object TSrgUtil {
 
     // these classes are using data based on the TSRG format, not the SRG format
 
-    private data class Clazz(val obf: String, val deobf: String,
+    data class Clazz(val obf: String, val deobf: String,
                              val fields: MutableList<Field> = mutableListOf(),
                              val methods: MutableList<Method> = mutableListOf()) {
         override fun toString(): String = "$obf $deobf"
     }
 
-    private data class Field(val obf: String, val deobf: String) {
+    data class Field(val obf: String, val deobf: String) {
         override fun toString(): String = "$obf $deobf"
     }
 
-    private data class Method(val obf: String, val obfSig: String, val deobf: String) {
+    data class Method(val obf: String, val obfSig: String, val deobf: String) {
         override fun toString(): String = "$obf $obfSig $deobf"
     }
 
-    fun toSrg(tsrgFile: File, srgFile: File) {
-        // checks
-        if (!(srgFile.exists())) srgFile.createNewFile()
-        if (srgFile.exists() && !srgFile.isFile) throw RuntimeException("srg path is not a file: $srgFile")
-        if (!tsrgFile.exists() || !tsrgFile.isFile) throw RuntimeException("tsrg file not found: $tsrgFile")
-
-        val lines = tsrgFile.readLines()
+    fun parseTSrg(lines: List<String>): List<Clazz> {
         val classes = mutableListOf<Clazz>()
         var currentClass: Clazz? = null
 
         // parse the lines
         lines.forEachIndexed { index, line ->
-            if (line.startsWith("\t") || line.startsWith(" ")) {
+            if (line.startsWith("#") || line.trim().isEmpty()) { // comment
+            } else if (line.startsWith("\t") || line.startsWith(" ")) {
                 if (currentClass == null) throw RuntimeException("Parse error on line $index: no class")
                 val l = line.trim()
                 val parts = l.split(" ")
@@ -66,6 +61,16 @@ object TSrgUtil {
                 }
             }
         }
+        return classes
+    }
+
+    fun toSrg(tsrgFile: File, srgFile: File) {
+        // checks
+        if (!(srgFile.exists())) srgFile.createNewFile()
+        if (srgFile.exists() && !srgFile.isFile) throw RuntimeException("srg path is not a file: $srgFile")
+        if (!tsrgFile.exists() || !tsrgFile.isFile) throw RuntimeException("tsrg file not found: $tsrgFile")
+
+        val classes = parseTSrg(tsrgFile.readLines())
 
         val classNames = classes.map { it.obf to it.deobf }.toMap()
         val output = StringBuilder()
@@ -201,6 +206,55 @@ object TSrgUtil {
             }
         }
         tsrgFile.writeText(output.toString())
+    }
+
+}
+
+object MappingsGenerator {
+
+    private data class ClassMapping(val deobf: String, var clientObf: String? = null, var serverObf: String? = null) {
+        override fun toString(): String = "$deobf (client: $clientObf) (server: $serverObf)"
+    }
+
+    private inline fun unquote(s: String): String = s.substring(1, s.length - 1)
+
+    /**
+     * @param classFile CSV file containing MCP v4.3 mappings
+     * @return Pair(serverOnlyClassesObf, map from serverObf to clientObf)
+     */
+    fun generateClassMappings(classFile: File): Pair<List<String>, Map<String, String>> {
+        val classNames = classFile.readLines().toMutableList()
+        classNames.removeAt(0) // remove column definition
+        val classes = mutableListOf<ClassMapping>()
+
+        classNames.forEach {
+            val parts = it.split(",")
+            val deobf = unquote(parts[0])
+            val obf = unquote(parts[1])
+            val isClient = unquote(parts[4]).toInt() == 0
+
+            var foundClass = false
+            classes.forEach {
+                if (it.deobf == deobf && (it.clientObf == null || it.serverObf == null)) {
+                    foundClass = true
+                    if (isClient) it.clientObf = obf else it.serverObf = obf
+                }
+            }
+
+            if (!foundClass) {
+                if (isClient) {
+                    classes.add(ClassMapping(deobf, obf, null))
+                } else {
+                    classes.add(ClassMapping(deobf, null, obf))
+                }
+            }
+
+        }
+
+        return Pair(
+                classes.filter { it.clientObf == null && it.serverObf != null }.map { it.serverObf!! },
+                classes.filter { it.clientObf != null && it.serverObf != null }.map { it.serverObf!! to it.clientObf!! }.toMap()
+        )
     }
 
 }
