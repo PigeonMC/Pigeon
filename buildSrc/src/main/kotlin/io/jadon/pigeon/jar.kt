@@ -6,6 +6,7 @@ import net.md_5.specialsource.JarRemapper
 import net.md_5.specialsource.provider.JarProvider
 import net.md_5.specialsource.provider.JointProvider
 import org.objectweb.asm.ClassReader
+import org.objectweb.asm.ClassVisitor
 import org.objectweb.asm.ClassWriter
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.commons.ClassRemapper
@@ -88,24 +89,39 @@ object JarManager {
         }
 
         //  Get client classes
-        val mergedClasses = clientJar.entries().toList().filter { !it.name.contains("META-INF") }.map {
+        val mergedFiles = clientJar.entries().toList().filter { !it.name.contains("META-INF") }.map {
             val inputStream = clientJar.getInputStream(it)
-            if (it.name.endsWith(".class")) {
-                // Make all the classes public
-                val classNode = ClassNode()
-                val classReader = ClassReader(inputStream)
-                classReader.accept(classNode, 0)
-                checkAccess(classNode)
-                val classWriter = ClassWriter(ClassWriter.COMPUTE_MAXS)
-                classNode.accept(classWriter)
-                it.name to classWriter.toByteArray()
-            } else it.name to inputStream.readBytes()
+            it.name to inputStream.readBytes()
         }.toMutableList()
 
         clientJar.close()
 
         // Add remapped server classes
-        mergedClasses.addAll(serverClassesToMove)
+        mergedFiles.addAll(serverClassesToMove)
+
+        val mergedClassNodes = mergedFiles.mapNotNull {
+            if (it.first.endsWith(".class")) {
+                val classNode = ClassNode()
+                val classReader = ClassReader(it.second)
+                classReader.accept(classNode, 0)
+                it.first to classNode
+            } else null
+        }
+
+        val mergedClassBytes = mergedClassNodes.map { (name, classNode) ->
+            val classWriter = ClassWriter(ClassWriter.COMPUTE_MAXS)
+            // Make all the classes public
+            checkAccess(classNode)
+            classNode.accept(classWriter)
+            name to classWriter.toByteArray()
+        }.toMap()
+
+        // Modify classes to play nicely together
+        val mergedClasses = mergedFiles.map {
+            if (it.first.endsWith(".class"))
+                it.first to mergedClassBytes[it.first]
+            else it
+        }
 
         val mergedJarStream = ZipOutputStream(FileOutputStream(merged))
         val output = BufferedOutputStream(mergedJarStream)

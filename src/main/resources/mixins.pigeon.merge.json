@@ -1,9 +1,9 @@
 {
   "minVersion": "0.7.7",
-  "package": "io.jadon.pigeon.mixin",
+  "package": "io.jadon.pigeon.mixin.merge",
   "target": "@env(DEFAULT)",
   "compatibilityLevel": "JAVA_8",
   "mixins": [
-    "MixinMinecraft"
+    "MixinMinecraftServer"
   ]
 }
