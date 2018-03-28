@@ -62,7 +62,7 @@ compileTestKotlin {
 
 minecraftData {
     serverToClientObf = "mappings/serverToClientObf.tsrg"
-    tsrgFile = "mappings/client.tsrg"
+    tsrgFile = "mappings/merged.tsrg"
 }
 
 compileKotlin.dependsOn mapMinecraft

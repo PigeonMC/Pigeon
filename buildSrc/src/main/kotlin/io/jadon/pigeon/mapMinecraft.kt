@@ -46,6 +46,11 @@ open class MapMinecraftTask : DefaultTask() {
             JarManager.downloadVanillaClient(clientFile.path)
         }
 
+        if (!serverFile.exists()) {
+            println("ERROR: You're missing a Beta 1.7.3 Server jar!")
+            System.exit(-1)
+        }
+
 //        println("Generating")
 //        val classFile = File("mappings/classes.csv")
 //        val (serverOnlyClasses, serverToClientMappings) = MappingsGenerator.getClassMappings(classFile)
@@ -74,10 +79,8 @@ open class MapMinecraftTask : DefaultTask() {
         println("Converting TSRG to SRG")
         TSrgUtil.toSrg(tsrgFile, tempSrgFile)
 
-        if (!mappedFile.exists() || extension.force) {
-            println("Mapping Jar (might take a long time)")
-            JarManager.remapJar(mergedFile.path, mappedFile.path, tempSrgFile.path)
-        }
+        println("Mapping Jar (might take a long time)")
+        JarManager.remapJar(mergedFile.path, mappedFile.path, tempSrgFile.path)
 
         println("Mapping completed")
     }
