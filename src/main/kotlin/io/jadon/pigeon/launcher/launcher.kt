@@ -33,7 +33,7 @@ object Pigeon {
 
     fun launchClient() {
         Pigeon.Logger.info("Starting Client in LegacyLauncher")
-        PigeonTweakClass.LAUNCH_TARGET = "net.minecraft.client.Minecraft"
+        PigeonTweakClass.LAUNCH_TARGET = "net.minecraft.client.MinecraftClient"
         Launch.main(arrayOf("--tweakClass", PigeonTweakClass::class.java.name))
     }
 

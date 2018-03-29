@@ -13,7 +13,7 @@ public abstract class MixinMainMenuGui extends ScreenGui {
             method = "drawScreen",
             at = @At(
                     value = "INVOKE",
-                    target = "Lnet/minecraft/client/gui/MainMenuGui;b(Lsj;Ljava/lang/String;III)V",
+                    target = "Lnet/minecraft/client/gui/MainMenuGui;drawString(Lnet/minecraft/client/render/FontRenderer;Ljava/lang/String;III)V",
                     ordinal = 0
             ),
             index = 1

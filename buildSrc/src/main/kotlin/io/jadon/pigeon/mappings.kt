@@ -28,7 +28,7 @@ object TSrgUtil {
         lines.forEachIndexed { index, line ->
             if (line.startsWith("#") || line.trim().isEmpty()) { // comment
             } else if (line.startsWith("\t") || line.startsWith(" ")) {
-                if (currentClass == null) throw RuntimeException("Parse error on line $index: no class")
+                if (currentClass == null) throw RuntimeException("Parse error on line $index: no class\n$line")
                 val l = line.trim()
                 val parts = l.split(" ")
                 when (parts.size) {
@@ -45,7 +45,7 @@ object TSrgUtil {
                         val deobf = parts[2]
                         currentClass!!.methods.add(Method(obf, obfSig, deobf))
                     }
-                    else -> throw RuntimeException("Parse error on line $index: too many parts")
+                    else -> throw RuntimeException("Parse error on line $index: too many parts\n$line")
                 }
             } else if (line.contains(" ")) {
                 currentClass?.let { classes.add(it) }
@@ -57,7 +57,7 @@ object TSrgUtil {
                         val deobf = parts[1]
                         currentClass = Clazz(obf, deobf)
                     }
-                    else -> throw RuntimeException("Parse error on line $index: class definition has too many parts")
+                    else -> throw RuntimeException("Parse error on line $index: class definition has too many parts\n$line")
                 }
             }
         }
