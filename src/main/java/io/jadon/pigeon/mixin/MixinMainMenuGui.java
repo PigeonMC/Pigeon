@@ -10,6 +10,7 @@ import org.spongepowered.asm.mixin.injection.ModifyArg;
 public abstract class MixinMainMenuGui extends ScreenGui {
 
     @ModifyArg(
+            remap = false,
             method = "drawScreen",
             at = @At(
                     value = "INVOKE",

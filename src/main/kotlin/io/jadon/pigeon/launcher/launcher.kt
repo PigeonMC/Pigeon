@@ -28,7 +28,7 @@ object Pigeon {
     @JvmStatic
     fun main(args: Array<String>) {
         Logger.info("Starting Pigeon")
-        launchClient()
+        launchServer()
     }
 
     fun launchClient() {

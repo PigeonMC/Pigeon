@@ -1,4 +1,4 @@
-package io.jadon.pigeon.mixin;
+package io.jadon.pigeon;
 
 import sun.misc.Unsafe;
 
