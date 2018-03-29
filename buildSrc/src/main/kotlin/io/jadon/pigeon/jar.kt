@@ -47,7 +47,7 @@ object JarManager {
         fun checkAccess(classNode: ClassNode) {
             val acc = classNode.access
             classNode.access = acc or Opcodes.ACC_PUBLIC
-            classNode.methods.filter { it.name == "<init>" }.forEach {
+            classNode.methods.forEach {
                 if (it.access and Opcodes.ACC_PUBLIC != Opcodes.ACC_PUBLIC && it.access and Opcodes.ACC_PRIVATE != Opcodes.ACC_PRIVATE) {
                     it.access = (it.access and 0xFFFF8) or Opcodes.ACC_PUBLIC
                 }
