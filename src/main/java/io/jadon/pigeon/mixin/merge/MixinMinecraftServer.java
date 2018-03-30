@@ -6,7 +6,6 @@ import net.minecraft.util.FrozenThread;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.command.CommandListener;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 

@@ -27,6 +27,20 @@ open class MapMinecraftExtension {
 open class MapMinecraftTask : DefaultTask() {
     @TaskAction
     fun mapMinecraft() {
+        println("TEMP")
+//        println("Generating")
+//        val classFile = File("mappings/mcp/classes.csv")
+//        val (serverOnlyClasses, serverToClientMappings) = MappingsGenerator.getClassMappings(classFile)
+//        val combinedMappings: MutableMap<String, String> = serverOnlyClasses.mapNotNull {
+//            if (it == "MinecraftServer") null else it to "s_$it"
+//        }.toMap().toMutableMap()
+//        combinedMappings.putAll(serverToClientMappings)
+
+//        val fieldFile = File("mappings/mcp/fields.csv")
+//        val mappings = MappingsGenerator.generateFieldMappings(fieldFile)
+//        mappings.forEach { t, u -> println("$t $u") }
+//        System.exit(-1)
+
         println("Generating Merged & Mapped Minecraft Jar")
         val extension = project.extensions.getByType(MapMinecraftExtension::class.java)
         println("Using mappings: ${extension.tsrgFile}")
@@ -51,23 +65,27 @@ open class MapMinecraftTask : DefaultTask() {
             System.exit(-1)
         }
 
-//        println("Generating")
-//        val classFile = File("mappings/classes.csv")
-//        val (serverOnlyClasses, serverToClientMappings) = MappingsGenerator.getClassMappings(classFile)
-//        val combinedMappings: MutableMap<String, String> = serverOnlyClasses.mapNotNull {
-//            if (it == "MinecraftServer") null else it to "s_$it"
-//        }.toMap().toMutableMap()
-//        combinedMappings.putAll(serverToClientMappings)
-
         val combinedMappings = TSrgUtil.parseTSrg(serverToClientObfFile.readLines())
+        val serverToClientMappings = combinedMappings.map { clazz ->
+            val mappings = mutableListOf(clazz.obf to clazz.deobf)
+            // Put mappings into ASM Remapper format
+            clazz.methods.forEach { method ->
+                mappings.add("${clazz.obf}.${method.obf}${method.obfSig}" to method.deobf)
+            }
+            clazz.fields.forEach { field ->
+                mappings.add("${clazz.obf}.${field.obf}" to field.deobf)
+            }
+            mappings
+        }.flatten().toMap()
+        val serverOnlyClasses = combinedMappings.filter { it.deobf.startsWith("s_") }.map { it.obf }
 
         println("Merging Jars")
         JarManager.mergeJars(
                 clientFile,
                 serverFile,
                 mergedFile,
-                combinedMappings.map { it.obf to it.deobf }.toMap(),
-                combinedMappings.filter { it.deobf.startsWith("s_") }.map { it.obf }
+                serverToClientMappings,
+                serverOnlyClasses
         )
 
         val tsrgFile = File(extension.tsrgFile)

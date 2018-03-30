@@ -6,7 +6,6 @@ import net.md_5.specialsource.JarRemapper
 import net.md_5.specialsource.provider.JarProvider
 import net.md_5.specialsource.provider.JointProvider
 import org.objectweb.asm.ClassReader
-import org.objectweb.asm.ClassVisitor
 import org.objectweb.asm.ClassWriter
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.commons.ClassRemapper
@@ -37,6 +36,10 @@ object JarManager {
     fun mergeJars(client: File, server: File, merged: File, serverToClientMappings: Map<String, String>, serverOnlyClasses: List<String>) {
         val clientJar = JarFile(client)
         val serverJar = JarFile(server)
+        // Remapper format
+        // CL: a        | b
+        // FD: a.b      | c
+        // MD: a.b()Lc; | d
         val remapper = SimpleRemapper(serverToClientMappings)
         val mappedServerOnlyClasses = serverOnlyClasses.map { serverToClientMappings[it] }
         val serverClassesToMove = mutableListOf<Pair<String, ByteArray>>()

@@ -28,7 +28,15 @@ object Pigeon {
     @JvmStatic
     fun main(args: Array<String>) {
         Logger.info("Starting Pigeon")
-        launchServer()
+        if (args.isNotEmpty()) {
+            val a = args[0]
+            when (a) {
+                "client" -> launchClient()
+                "server" -> launchServer()
+            }
+        } else {
+            Logger.error("Invalid arguments: $args")
+        }
     }
 
     fun launchClient() {

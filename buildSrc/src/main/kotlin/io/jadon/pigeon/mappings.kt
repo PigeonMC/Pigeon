@@ -219,6 +219,10 @@ object MappingsGenerator {
         override fun toString(): String = "$deobf (client: $clientObf) (server: $serverObf)"
     }
 
+    private data class FieldMapping(val deobfField: String, val deobfClass: String, var clientObfTotal: String? = null, var serverObfTotal: String? = null) {
+        override fun toString(): String = "$deobfClass.$deobfField (client: $clientObfTotal) (server: $serverObfTotal)"
+    }
+
     private inline fun unquote(s: String): String = s.substring(1, s.length - 1)
 
     /**
@@ -258,6 +262,48 @@ object MappingsGenerator {
                 classes.filter { it.clientObf == null && it.serverObf != null }.map { it.serverObf!! },
                 classes.filter { it.clientObf != null && it.serverObf != null }.map { it.serverObf!! to it.clientObf!! }.toMap()
         )
+    }
+
+    /**
+     * @param fieldFile CSV file containing MCP v4.3 mappings
+     * @return TODO
+     */
+    fun generateFieldMappings(fieldFile: File): Map<String, String> {
+        val fieldNames = fieldFile.readLines().toMutableList()
+        fieldNames.removeAt(0) // remove column definition
+        val fields = mutableListOf<FieldMapping>()
+
+        fieldNames.forEach {
+            val parts = it.split(",")
+            val deobfField = unquote(parts[1])
+            val deobfClass = unquote(parts[5])
+            val obfField = unquote(parts[2])
+            val obfClass = unquote(parts[6])
+            val obf = "$obfClass.$obfField"
+            val isClient = unquote(parts[8]).toInt() == 0
+
+            var foundField = false
+            fields.forEach {
+                if (it.deobfClass == deobfClass && it.deobfField == deobfField) {
+                    foundField = true
+                    if (isClient) it.clientObfTotal = obf else it.serverObfTotal = obf
+                }
+            }
+
+            if (!foundField) {
+                if (isClient) {
+                    fields.add(FieldMapping(deobfField, deobfClass, obf, null))
+                } else {
+                    fields.add(FieldMapping(deobfField, deobfClass, null, obf))
+                }
+            }
+        }
+
+        return fields.filter {
+            it.clientObfTotal != null && it.serverObfTotal != null
+        }.map {
+            it.serverObfTotal!! to it.clientObfTotal!!
+        }.toMap()
     }
 
 }

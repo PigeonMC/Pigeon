@@ -4,6 +4,9 @@
   "target": "@env(DEFAULT)",
   "compatibilityLevel": "JAVA_8",
   "mixins": [
-    "MixinMinecraftServer"
+    "MixinMinecraftServer",
+    "MixinServerWorld",
+    "MixinAbstractSaveHandler",
+    "MixinServerSaveHandler"
   ]
 }
