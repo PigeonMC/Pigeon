@@ -15,8 +15,8 @@ open class MapMinecraftPlugin : Plugin<Project> {
 
 open class MapMinecraftExtension {
     var tsrgFile: String = "null"
-    var tempSrgFile: String? = null
-    var serverToClientObf: String = ""
+    var serverToClientObf: String = "null"
+    var clientClassOverride: String = "null"
     var clientJar: String = "build/minecraft/minecraft_client.jar"
     var serverJar: String = "build/minecraft/minecraft_server.jar"
     var mergedJar: String = "build/minecraft/minecraft_merged.jar"
@@ -95,20 +95,21 @@ open class MapMinecraftTask : DefaultTask() {
         }
 
         val combinedMappings = TSrgUtil.parseTSrg(serverToClientObfFile.readLines())
-//        val serverToClientMappings = combinedMappings.map { clazz ->
-//            val mappings = mutableListOf(clazz.obf to clazz.deobf)
-//            // Put mappings into ASM Remapper format
-//            clazz.methods.forEach { method ->
-//                mappings.add("${clazz.obf}.${method.obf}${method.obfSig}" to method.deobf)
-//            }
-//            clazz.fields.forEach { field ->
-//                mappings.add("${clazz.obf}.${field.obf}" to field.deobf)
-//            }
-//            mappings
-//        }.flatten().toMap()
         val serverOnlyClasses = combinedMappings.filter { it.deobf.startsWith("s_") }.map { it.deobf }
         val serverToClientMappingsFile = File.createTempFile("tempMinecraftMappings", ".srg")
         TSrgUtil.toSrg(combinedMappings, serverToClientMappingsFile)
+
+        // Get Client Class Overrides
+        val clientClassOverrideFile = File(extension.clientClassOverride)
+        val clientClassOverrides: List<String> = if (clientClassOverrideFile.exists() && clientClassOverrideFile.isFile) {
+            val overrides = mutableListOf<String>()
+            val lines = clientClassOverrideFile.readLines()
+            lines.forEach {
+                if (it.trim().startsWith("#") || it.trim().isEmpty()) { // comment
+                } else overrides.add(it.split(" ")[0])
+            }
+            overrides
+        } else listOf()
 
         println("Merging Jars")
         JarManager.mergeJars(
@@ -116,14 +117,14 @@ open class MapMinecraftTask : DefaultTask() {
                 serverFile,
                 mergedFile,
                 serverToClientMappingsFile,
-                serverOnlyClasses
+                serverOnlyClasses,
+                clientClassOverrides
         )
 
         val tsrgFile = File(extension.tsrgFile)
         if (!tsrgFile.exists()) throw IllegalArgumentException("Can't find mappings file: ${tsrgFile.path}")
 
-        val tempSrgFile = if (extension.tempSrgFile == null) File.createTempFile("temporaryMinecraftMappings", ".srg")
-        else File(extension.tempSrgFile)
+        val tempSrgFile = File.createTempFile("tempMinecraftMappings", ".srg")
 
         println("Converting TSRG to SRG")
         TSrgUtil.toSrg(tsrgFile, tempSrgFile)

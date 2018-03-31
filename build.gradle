@@ -65,6 +65,7 @@ compileTestKotlin {
 minecraftData {
     serverToClientObf = "mappings/serverToClientObf.tsrg"
     tsrgFile = "mappings/merged.tsrg"
+    clientClassOverride = "mappings/clientClassOverride.txt"
 }
 
 compileKotlin.dependsOn mapMinecraft

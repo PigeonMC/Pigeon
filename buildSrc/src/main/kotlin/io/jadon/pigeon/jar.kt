@@ -8,8 +8,6 @@ import net.md_5.specialsource.provider.JointProvider
 import org.objectweb.asm.ClassReader
 import org.objectweb.asm.ClassWriter
 import org.objectweb.asm.Opcodes
-import org.objectweb.asm.commons.ClassRemapper
-import org.objectweb.asm.commons.SimpleRemapper
 import org.objectweb.asm.tree.ClassNode
 import java.io.BufferedOutputStream
 import java.io.File
@@ -33,7 +31,8 @@ object JarManager {
         }
     }
 
-    fun mergeJars(client: File, server: File, merged: File, serverToClientMappings: File, serverOnlyClasses: List<String>) {
+    fun mergeJars(client: File, server: File, merged: File,
+                  serverToClientMappings: File, serverOnlyClasses: List<String>, clientClassOverrides: List<String>) {
         val clientJar = JarFile(client)
         // Remap the server jar to the client obfuscations
         val remappedServer = merged.absolutePath.substring(0, merged.absolutePath.lastIndexOf('/')) + "/minecraft_server_merobf.jar"
@@ -43,13 +42,6 @@ object JarManager {
                 serverToClientMappings.absolutePath
         )
         val remappedServerJar = JarFile(File(remappedServer))
-        // Remapper format
-        // CL: a        | b
-        // FD: a.b      | c
-        // MD: a.b()Lc; | d
-//        val remapper = SimpleRemapper(serverToClientMappings)
-//        val mappedServerOnlyClasses = serverOnlyClasses.map { serverToClientMappings[it] }
-//        val serverClassesToMove = mutableListOf<Pair<String, ByteArray>>()
 
         /**
          * Transform the access for all protected/package-private entities to public.
@@ -69,37 +61,13 @@ object JarManager {
             }
         }
 
-//        val entries = serverJar.entries()
-//        while (entries.hasMoreElements()) {
-//            val entry = entries.nextElement()
-//            if (entry.name.endsWith(".class")
-//                    && (serverOnlyClasses.contains(entry.name.substring(0, entry.name.length - 6))
-//                    || entry.name == "net/minecraft/server/MinecraftServer.class")) {
-//                // Read class from jar
-//                val inputStream = serverJar.getInputStream(entry)
-//                val classNode = ClassNode()
-//                val classReader = ClassReader(inputStream)
-//                classReader.accept(classNode, 0)
-//                // Remap the classes
-//                val classWriter = ClassWriter(ClassWriter.COMPUTE_MAXS)
-//                val classRemapper = ClassRemapper(classWriter, remapper)
-//                classNode.accept(classRemapper)
-//                checkAccess(classNode)
-//
-//                // Add the class to the list to move
-//                if (classNode.name == "net/minecraft/server/MinecraftServer") {
-//                    serverClassesToMove.add("net/minecraft/server/MinecraftServer.class" to classWriter.toByteArray())
-//                } else {
-//                    val mappedName = serverToClientMappings[classNode.name]
-//                    if (mappedServerOnlyClasses.contains(mappedName)) {
-//                        serverClassesToMove.add("$mappedName.class" to classWriter.toByteArray())
-//                    }
-//                }
-//            }
-//        }
-
         //  Get client classes
-        val mergedFiles = clientJar.entries().toList().filter { !it.name.contains("META-INF") }.map {
+        val mergedFiles = clientJar.entries().toList().filter { !it.name.contains("META-INF") }.filter {
+            // Remove client class overrides
+            if (it.name.endsWith(".class")) {
+                !clientClassOverrides.contains(it.name.removeSuffix(".class"))
+            } else true
+        }.map {
             val inputStream = clientJar.getInputStream(it)
             val r = it.name to inputStream.readBytes()
             inputStream.close()
@@ -111,7 +79,8 @@ object JarManager {
         // Add remapped server classes
         mergedFiles.addAll(remappedServerJar.entries().toList().filter {
             (it.name.endsWith(".class")
-                    && serverOnlyClasses.contains(it.name.removeSuffix(".class")))
+                    && (serverOnlyClasses.contains(it.name.removeSuffix(".class"))
+                    || clientClassOverrides.contains(it.name.removeSuffix(".class"))))
                     || it.name == "net/minecraft/server/MinecraftServer.class"
         }.map {
             val inputStream = remappedServerJar.getInputStream(it)
