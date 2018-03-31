@@ -67,14 +67,7 @@ object TSrgUtil {
         return classes
     }
 
-    fun toSrg(tsrgFile: File, srgFile: File) {
-        // checks
-        if (!(srgFile.exists())) srgFile.createNewFile()
-        if (srgFile.exists() && !srgFile.isFile) throw RuntimeException("srg path is not a file: $srgFile")
-        if (!tsrgFile.exists() || !tsrgFile.isFile) throw RuntimeException("tsrg file not found: $tsrgFile")
-
-        val classes = parseTSrg(tsrgFile.readLines())
-
+    fun toSrg(classes: List<Clazz>, srgFile: File) {
         val classNames = classes.map { it.obf to it.deobf }.toMap()
         val output = StringBuilder()
         // write the classes out in SRG format
@@ -121,6 +114,17 @@ object TSrgUtil {
             }
         }
         srgFile.writeText(output.toString().split("\n").sorted().filter { it.isNotEmpty() }.joinToString("\n"))
+    }
+
+    fun toSrg(tsrgFile: File, srgFile: File) {
+        // checks
+        if (!(srgFile.exists())) srgFile.createNewFile()
+        if (srgFile.exists() && !srgFile.isFile) throw RuntimeException("srg path is not a file: $srgFile")
+        if (!tsrgFile.exists() || !tsrgFile.isFile) throw RuntimeException("tsrg file not found: $tsrgFile")
+
+        val classes = parseTSrg(tsrgFile.readLines())
+
+        toSrg(classes, srgFile)
     }
 
     fun fromSrg(srgFile: File, tsrgFile: File) {
@@ -301,9 +305,52 @@ object MappingsGenerator {
 
         return fields.filter {
             it.clientObfTotal != null && it.serverObfTotal != null
+                    && it.clientObfTotal!!.split(".")[1] !=
+                    it.serverObfTotal!!.split(".")[1]
         }.map {
             it.serverObfTotal!! to it.clientObfTotal!!
-        }.toMap()
+        }.toMap().toSortedMap()
+    }
+
+    fun generateMethodMappings(methodFile: File): Map<String, String> {
+        val methodNames = methodFile.readLines().toMutableList()
+        methodNames.removeAt(0) // remove column definition
+        val methods = mutableListOf<FieldMapping>()
+
+        methodNames.forEach {
+            val parts = it.split(",")
+            val deobfName = unquote(parts[1])
+            val deobfClass = unquote(parts[5])
+            val obfName = unquote(parts[2])
+            val sig = unquote(parts[4])
+            val obfClass = unquote(parts[6])
+            val obf = "$obfClass.$obfName.$sig"
+            val isClient = unquote(parts[8]).toInt() == 0
+
+            var foundField = false
+            methods.forEach {
+                if (it.deobfClass == deobfClass && it.deobfField == deobfName) {
+                    foundField = true
+                    if (isClient) it.clientObfTotal = obf else it.serverObfTotal = obf
+                }
+            }
+
+            if (!foundField) {
+                if (isClient) {
+                    methods.add(FieldMapping(deobfName, deobfClass, obf, null))
+                } else {
+                    methods.add(FieldMapping(deobfName, deobfClass, null, obf))
+                }
+            }
+        }
+
+        return methods.filter {
+            it.clientObfTotal != null && it.serverObfTotal != null
+                    && it.clientObfTotal!!.split(".")[1] !=
+                    it.serverObfTotal!!.split(".")[1]
+        }.map {
+            it.serverObfTotal!! to it.clientObfTotal!!
+        }.toMap().toSortedMap()
     }
 
 }

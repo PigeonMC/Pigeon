@@ -41,12 +41,14 @@ object Pigeon {
 
     fun launchClient() {
         Pigeon.Logger.info("Starting Client in LegacyLauncher")
+        PigeonTweakClass.JAR_LOCATION = PigeonTweakClass.JarLocation.MAPPED_MERGED
         PigeonTweakClass.LAUNCH_TARGET = "net.minecraft.client.MinecraftClient"
         Launch.main(arrayOf("--tweakClass", PigeonTweakClass::class.java.name))
     }
 
     fun launchServer() {
         Pigeon.Logger.info("Starting Server in LegacyLauncher")
+        PigeonTweakClass.JAR_LOCATION = PigeonTweakClass.JarLocation.MAPPED_MERGED
         PigeonTweakClass.LAUNCH_TARGET = "net.minecraft.server.MinecraftServer"
         Launch.main(arrayOf("--tweakClass", PigeonTweakClass::class.java.name))
     }
@@ -125,10 +127,19 @@ object Pigeon {
 }
 
 class PigeonTweakClass : ITweaker {
+
+    // TODO: get this from Gradle? Remove all together?
+    enum class JarLocation(val url: String) {
+        CLIENT("build/minecraft/minecraft_client.jar"),
+        SERVER("build/minecraft/minecraft_server.jar"),
+        MERGED("build/minecraft/minecraft_merged.jar"),
+        MAPPED_MERGED("build/minecraft/minecraft_merged_mapped.jar")
+    }
+
     companion object {
         var LAUNCH_TARGET = "null (user needs to set this)"
-        // TODO: get this from Gradle?
-        const val LOCATION_OF_LOCAL_MAPPED_MINECRAFT = "build/minecraft/minecraft_merged_mapped.jar"
+
+        var JAR_LOCATION = JarLocation.MAPPED_MERGED
     }
 
     override fun getLaunchTarget(): String = LAUNCH_TARGET
@@ -150,7 +161,7 @@ class PigeonTweakClass : ITweaker {
 
         Pigeon.setupMods(classLoader)
 
-        classLoader.addURL(Paths.get(LOCATION_OF_LOCAL_MAPPED_MINECRAFT).toUri().toURL())
+        classLoader.addURL(Paths.get(JAR_LOCATION.url).toUri().toURL())
     }
 
     override fun getLaunchArguments(): Array<String> = arrayOf()

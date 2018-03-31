@@ -27,7 +27,6 @@ open class MapMinecraftExtension {
 open class MapMinecraftTask : DefaultTask() {
     @TaskAction
     fun mapMinecraft() {
-        println("TEMP")
 //        println("Generating")
 //        val classFile = File("mappings/mcp/classes.csv")
 //        val (serverOnlyClasses, serverToClientMappings) = MappingsGenerator.getClassMappings(classFile)
@@ -38,7 +37,37 @@ open class MapMinecraftTask : DefaultTask() {
 
 //        val fieldFile = File("mappings/mcp/fields.csv")
 //        val mappings = MappingsGenerator.generateFieldMappings(fieldFile)
-//        mappings.forEach { t, u -> println("$t $u") }
+//
+//        val seenClasses = mutableListOf<String>()
+//        mappings.forEach { serverObf, clientObf ->
+//            val serverClass = serverObf.split(".")[0]
+//            val clientClass = clientObf.split(".")[0]
+//            val serverField = serverObf.split(".")[1]
+//            val clientField = clientObf.split(".")[1]
+//            if (!seenClasses.contains(serverClass)) {
+//                println("$serverClass $clientClass")
+//                seenClasses.add(serverClass)
+//            }
+//            println("    $serverField $clientField")
+//        }
+
+//        val methodFile = File("mappings/mcp/methods.csv")
+//        val mappings = MappingsGenerator.generateMethodMappings(methodFile)
+//
+//        val seenClasses = mutableListOf<String>()
+//        mappings.forEach { serverObf, clientObf ->
+//            val serverClass = serverObf.split(".")[0]
+//            val clientClass = clientObf.split(".")[0]
+//            val serverMethodName = serverObf.split(".")[1]
+//            val clientMethodName = clientObf.split(".")[1]
+//            val serverMethodSig = serverObf.split(".")[2]
+//            val clientMethodSig = clientObf.split(".")[2]
+//            if (!seenClasses.contains(serverClass)) {
+//                println("$serverClass $clientClass")
+//                seenClasses.add(serverClass)
+//            }
+//            println("    $serverMethodName $serverMethodSig $clientMethodName")
+//        }
 //        System.exit(-1)
 
         println("Generating Merged & Mapped Minecraft Jar")
@@ -66,25 +95,27 @@ open class MapMinecraftTask : DefaultTask() {
         }
 
         val combinedMappings = TSrgUtil.parseTSrg(serverToClientObfFile.readLines())
-        val serverToClientMappings = combinedMappings.map { clazz ->
-            val mappings = mutableListOf(clazz.obf to clazz.deobf)
-            // Put mappings into ASM Remapper format
-            clazz.methods.forEach { method ->
-                mappings.add("${clazz.obf}.${method.obf}${method.obfSig}" to method.deobf)
-            }
-            clazz.fields.forEach { field ->
-                mappings.add("${clazz.obf}.${field.obf}" to field.deobf)
-            }
-            mappings
-        }.flatten().toMap()
-        val serverOnlyClasses = combinedMappings.filter { it.deobf.startsWith("s_") }.map { it.obf }
+//        val serverToClientMappings = combinedMappings.map { clazz ->
+//            val mappings = mutableListOf(clazz.obf to clazz.deobf)
+//            // Put mappings into ASM Remapper format
+//            clazz.methods.forEach { method ->
+//                mappings.add("${clazz.obf}.${method.obf}${method.obfSig}" to method.deobf)
+//            }
+//            clazz.fields.forEach { field ->
+//                mappings.add("${clazz.obf}.${field.obf}" to field.deobf)
+//            }
+//            mappings
+//        }.flatten().toMap()
+        val serverOnlyClasses = combinedMappings.filter { it.deobf.startsWith("s_") }.map { it.deobf }
+        val serverToClientMappingsFile = File.createTempFile("tempMinecraftMappings", ".srg")
+        TSrgUtil.toSrg(combinedMappings, serverToClientMappingsFile)
 
         println("Merging Jars")
         JarManager.mergeJars(
                 clientFile,
                 serverFile,
                 mergedFile,
-                serverToClientMappings,
+                serverToClientMappingsFile,
                 serverOnlyClasses
         )
 
