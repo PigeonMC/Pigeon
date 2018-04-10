@@ -9,4 +9,16 @@ buildSrc/build/
 logs/
 out/
 .classloader.out/
+*.iml
+*.ipr
+*iws
 
+# Minecraft stuff
+banned-ips.txt
+banned-players.txt
+ops.txt
+*.log
+*.lck
+server.properties
+white-list.txt
+world/

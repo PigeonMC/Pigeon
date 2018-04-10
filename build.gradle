@@ -5,6 +5,8 @@ buildscript {
         mavenCentral()
     }
     dependencies {
+        // TODO: Temp
+        classpath files("../beta-gradle/build/libs/beta-gradle-0.0.0.jar")
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
     }
 }
@@ -14,7 +16,7 @@ version '0.0.0'
 
 apply plugin: 'kotlin'
 apply plugin: 'java'
-apply plugin: 'map-minecraft'
+apply plugin: 'beta-minecraft'
 apply plugin: 'idea'
 
 repositories {
@@ -30,7 +32,7 @@ repositories {
     }
 }
 
-def minecraft_mapped = "build/minecraft/minecraft_merged_mapped.jar"
+def minecraft = "build/minecraft/minecraft.jar"
 
 dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
@@ -52,7 +54,7 @@ dependencies {
     compile "org.lwjgl.lwjgl:lwjgl-platform:${lwjglVersion}:natives-linux"
     compile "org.lwjgl.lwjgl:lwjgl-platform:${lwjglVersion}:natives-osx"
 
-    compileOnly files(minecraft_mapped)
+    compileOnly files(minecraft)
 }
 
 compileKotlin {
@@ -62,10 +64,4 @@ compileTestKotlin {
     kotlinOptions.jvmTarget = "1.8"
 }
 
-minecraftData {
-    serverToClientObf = "mappings/serverToClientObf.tsrg"
-    tsrgFile = "mappings/merged.tsrg"
-    clientClassOverride = "mappings/clientClassOverride.txt"
-}
-
-compileKotlin.dependsOn mapMinecraft
+compileKotlin.dependsOn betaMinecraft
