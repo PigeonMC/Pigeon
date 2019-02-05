@@ -41,14 +41,14 @@ object Pigeon {
 
     fun launchClient() {
         Pigeon.Logger.info("Starting Client in LegacyLauncher")
-        PigeonTweakClass.JAR_LOCATION = PigeonTweakClass.JarLocation.MERGED
+        PigeonTweakClass.JAR_LOCATION = PigeonTweakClass.JarLocation.MAPPED_MERGED
         PigeonTweakClass.LAUNCH_TARGET = "net.minecraft.client.MinecraftClient"
         Launch.main(arrayOf("--tweakClass", PigeonTweakClass::class.java.name))
     }
 
     fun launchServer() {
         Pigeon.Logger.info("Starting Server in LegacyLauncher")
-        PigeonTweakClass.JAR_LOCATION = PigeonTweakClass.JarLocation.SERVER
+        PigeonTweakClass.JAR_LOCATION = PigeonTweakClass.JarLocation.MAPPED_MERGED
         PigeonTweakClass.LAUNCH_TARGET = "net.minecraft.server.MinecraftServer"
         Launch.main(arrayOf("--tweakClass", PigeonTweakClass::class.java.name))
     }
@@ -132,13 +132,14 @@ class PigeonTweakClass : ITweaker {
     enum class JarLocation(val url: String) {
         CLIENT("build/minecraft/minecraft_client.jar"),
         SERVER("build/minecraft/minecraft_server.jar"),
-        MERGED("build/minecraft/minecraft.jar")
+        MERGED("build/minecraft/minecraft_merged.jar"),
+        MAPPED_MERGED("build/minecraft/minecraft_merged_mapped.jar")
     }
 
     companion object {
         var LAUNCH_TARGET = "null (user needs to set this)"
 
-        var JAR_LOCATION = JarLocation.MERGED
+        var JAR_LOCATION = JarLocation.MAPPED_MERGED
     }
 
     override fun getLaunchTarget(): String = LAUNCH_TARGET
