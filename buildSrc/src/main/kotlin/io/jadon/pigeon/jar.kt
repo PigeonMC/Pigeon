@@ -21,27 +21,24 @@ import java.util.zip.ZipOutputStream
 
 object JarManager {
 
-    val DOWNLOAD_URL = URL("http://s3.amazonaws.com/Minecraft.Download/versions/b1.7.3/b1.7.3.jar")
+    private val CLIENT_URL = URL("http://s3.amazonaws.com/Minecraft.Download/versions/b1.7.3/b1.7.3.jar")
+    private val SERVER_URL = URL("https://betacraft.ovh/server-archive/minecraft/b1.7.3.jar")
 
-    fun downloadVanillaClient(destinationFile: String) {
+    fun downloadVanillaFiles(client: String, server: String) {
+        downloadFile(client, CLIENT_URL)
+        downloadFile(server, SERVER_URL)
+    }
+
+    fun downloadFile(destinationFile: String, url: URL) {
         val path = Paths.get(destinationFile)
         path.parent.toFile().mkdirs()
         if (!path.toFile().isFile) {
-            DOWNLOAD_URL.openStream().use { Files.copy(it, path) }
+            url.openStream().use { Files.copy(it, path) }
         }
     }
 
-    fun mergeJars(client: File, server: File, merged: File,
-                  serverToClientMappings: File, serverOnlyClasses: List<String>, clientClassOverrides: List<String>) {
-        val clientJar = JarFile(client)
-        // Remap the server jar to the client obfuscations
-        val remappedServer = merged.absolutePath.substring(0, merged.absolutePath.lastIndexOf('/')) + "/minecraft_server_merobf.jar"
-        remapJar(
-                server.absolutePath,
-                remappedServer,
-                serverToClientMappings.absolutePath
-        )
-        val remappedServerJar = JarFile(File(remappedServer))
+    fun transformJar(inFile: File, outFile: File) {
+        val inJar = JarFile(inFile)
 
         /**
          * Transform the access for all protected/package-private entities to public.
@@ -61,68 +58,37 @@ object JarManager {
             }
         }
 
-        //  Get client classes
-        val mergedFiles = clientJar.entries().toList().filter { !it.name.contains("META-INF") }.filter {
-            // Remove client class overrides
-            if (it.name.endsWith(".class")) {
-                !clientClassOverrides.contains(it.name.removeSuffix(".class"))
-            } else true
-        }.map {
-            val inputStream = clientJar.getInputStream(it)
-            val r = it.name to inputStream.readBytes()
-            inputStream.close()
-            r
-        }.toMutableList()
+        //  Get classes
+        val files: List<Pair<String, ByteArray>> = inJar.entries().toList()
+                .filter { !it.name.contains("META-INF") }
+                .map {
+                    val inputStream = inJar.getInputStream(it)
+                    val bytes = inputStream.readBytes()
+                    inputStream.close()
+                    it.name to if (it.name.endsWith(".class")) {
+                        val classNode = ClassNode()
+                        val classReader = ClassReader(bytes)
+                        classReader.accept(classNode, 0)
+                        val classWriter = ClassWriter(ClassWriter.COMPUTE_MAXS)
+                        // transform classes
+                        checkAccess(classNode)
+                        classNode.accept(classWriter)
+                        classWriter.toByteArray()
+                    } else bytes
+                }.toList()
+        inJar.close()
 
-        clientJar.close()
+        val outJarStream = ZipOutputStream(FileOutputStream(outFile))
+        val output = BufferedOutputStream(outJarStream)
 
-        // Add remapped server classes
-        mergedFiles.addAll(remappedServerJar.entries().toList().filter {
-            (it.name.endsWith(".class")
-                    && (serverOnlyClasses.contains(it.name.removeSuffix(".class"))
-                    || clientClassOverrides.contains(it.name.removeSuffix(".class"))))
-                    || it.name == "net/minecraft/server/MinecraftServer.class"
-        }.map {
-            val inputStream = remappedServerJar.getInputStream(it)
-            val r = it.name to inputStream.readBytes()
-            inputStream.close()
-            r
-        })
-
-        val mergedClassNodes = mergedFiles.mapNotNull {
-            if (it.first.endsWith(".class")) {
-                val classNode = ClassNode()
-                val classReader = ClassReader(it.second)
-                classReader.accept(classNode, 0)
-                it.first to classNode
-            } else null
-        }
-
-        val mergedClassBytes = mergedClassNodes.map { (name, classNode) ->
-            val classWriter = ClassWriter(ClassWriter.COMPUTE_MAXS)
-            // Make all the classes public
-            checkAccess(classNode)
-            classNode.accept(classWriter)
-            name to classWriter.toByteArray()
-        }.toMap()
-
-        val mergedClasses = mergedFiles.map {
-            if (it.first.endsWith(".class"))
-                it.first to mergedClassBytes[it.first]
-            else it
-        }
-
-        val mergedJarStream = ZipOutputStream(FileOutputStream(merged))
-        val output = BufferedOutputStream(mergedJarStream)
-
-        mergedClasses.forEach {
-            mergedJarStream.putNextEntry(JarEntry(it.first))
+        files.forEach {
+            outJarStream.putNextEntry(JarEntry(it.first))
             output.write(it.second)
             output.flush()
-            mergedJarStream.closeEntry()
+            outJarStream.closeEntry()
         }
         output.close()
-        mergedJarStream.close()
+        outJarStream.close()
     }
 
     fun remapJar(vanillaFile: String, mappedFile: String, srgFile: String) {

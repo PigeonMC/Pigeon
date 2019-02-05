@@ -1,7 +1,7 @@
 {
   "minVersion": "0.7.7",
-  "package": "io.jadon.pigeon.mixin",
-  "target": "@env(DEFAULT)",
+  "package": "io.jadon.pigeon.mixin.client",
+  "target": "CLIENT",
   "compatibilityLevel": "JAVA_8",
   "mixins": [
     "MixinMainMenuGui"

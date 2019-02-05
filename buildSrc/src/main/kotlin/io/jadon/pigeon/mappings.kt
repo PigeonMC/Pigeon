@@ -6,18 +6,49 @@ object TSrgUtil {
 
     // these classes are using data based on the TSRG format, not the SRG format
 
-    data class Clazz(val obf: String, val deobf: String,
+    data class Clazz(var obf: String, var deobf: String,
                      val fields: MutableList<Field> = mutableListOf(),
                      val methods: MutableList<Method> = mutableListOf()) {
         override fun toString(): String = "$obf $deobf"
     }
 
-    data class Field(val obf: String, val deobf: String) {
+    data class Field(var obf: String, var deobf: String) {
         override fun toString(): String = "$obf $deobf"
     }
 
-    data class Method(val obf: String, val obfSig: String, val deobf: String) {
+    data class Method(var obf: String, var obfSig: String, var deobf: String) {
         override fun toString(): String = "$obf $obfSig $deobf"
+
+        fun getDeobfSig(classNames: Map<String, String>): String {
+            // find what classes need to be replaced in the obfuscated string
+            val classesToReplace = mutableListOf<String>()
+            var buffer = ""
+            var state = false
+            obfSig.forEach {
+                when (it) {
+                    'L' -> {
+                        buffer = ""
+                        state = true
+                    }
+                    ';' -> {
+                        classesToReplace.add(buffer)
+                        state = false
+                    }
+                    else -> {
+                        if (state) buffer += it
+                    }
+                }
+            }
+
+            // replace the obfuscated classes
+            var deobfSig = obfSig
+            classesToReplace.forEach { obfClassName ->
+                if (classNames.containsKey(obfClassName)) {
+                    deobfSig = deobfSig.replace("L$obfClassName;", "L${classNames[obfClassName]!!};")
+                }
+            }
+            return deobfSig
+        }
     }
 
     fun parseTSrg(lines: List<String>): List<Clazz> {
@@ -81,34 +112,7 @@ object TSrgUtil {
             }
 
             clazz.methods.forEach { method ->
-                // find what classes need to be replaced in the obfuscated string
-                val classesToReplace = mutableListOf<String>()
-                var buffer = ""
-                var state = false
-                method.obfSig.forEach {
-                    when (it) {
-                        'L' -> {
-                            buffer = ""
-                            state = true
-                        }
-                        ';' -> {
-                            classesToReplace.add(buffer)
-                            state = false
-                        }
-                        else -> {
-                            if (state) buffer += it
-                        }
-                    }
-                }
-
-                // replace the obfuscated classes
-                var deobfSig = method.obfSig
-                classesToReplace.forEach { obfClassName ->
-                    if (classNames.containsKey(obfClassName)) {
-                        deobfSig = deobfSig.replace("L$obfClassName;", "L${classNames[obfClassName]!!};")
-                    }
-                }
-
+                val deobfSig = method.getDeobfSig(classNames)
                 output.append("MD: ${clazz.obf}/${method.obf} ${method.obfSig} " +
                         "${clazz.deobf}/${method.deobf} $deobfSig\n")
             }
@@ -116,7 +120,7 @@ object TSrgUtil {
         srgFile.writeText(output.toString().split("\n").sorted().filter { it.isNotEmpty() }.joinToString("\n"))
     }
 
-    fun toSrg(tsrgFile: File, srgFile: File) {
+    fun toSrg(tsrgFile: File, srgFile: File): List<Clazz> {
         // checks
         if (!(srgFile.exists())) srgFile.createNewFile()
         if (srgFile.exists() && !srgFile.isFile) throw RuntimeException("srg path is not a file: $srgFile")
@@ -125,6 +129,7 @@ object TSrgUtil {
         val classes = parseTSrg(tsrgFile.readLines())
 
         toSrg(classes, srgFile)
+        return classes
     }
 
     fun fromSrg(srgFile: File, tsrgFile: File) {

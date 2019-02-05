@@ -31,7 +31,7 @@ repositories {
 
 dependencies {
     compileOnly "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
-    compileOnly files("../build/minecraft/minecraft_merged_mapped.jar")
+    compileOnly files("../build/minecraft/minecraft_client_mapped.jar")
     compileOnly "org.spongepowered:mixin:0.7.7-SNAPSHOT"
     compileOnly rootProject
 }

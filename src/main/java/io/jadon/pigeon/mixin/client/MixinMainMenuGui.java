@@ -1,4 +1,4 @@
-package io.jadon.pigeon.mixin;
+package io.jadon.pigeon.mixin.client;
 
 import net.minecraft.client.gui.MainMenuGui;
 import net.minecraft.client.gui.ScreenGui;

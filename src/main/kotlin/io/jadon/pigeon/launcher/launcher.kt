@@ -1,5 +1,6 @@
 package io.jadon.pigeon.launcher
 
+import io.jadon.pigeon.SharedLibraryLoader
 import io.jadon.pigeon.api.ModContainer
 import io.jadon.pigeon.api.ModInfo
 import io.jadon.pigeon.mod.ModClassVisitor
@@ -13,6 +14,7 @@ import org.spongepowered.asm.mixin.Mixins
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.util.*
 import java.util.zip.ZipFile
 
 object Pigeon {
@@ -29,27 +31,32 @@ object Pigeon {
     fun main(args: Array<String>) {
         Logger.info("Starting Pigeon")
         if (args.isNotEmpty()) {
-            val a = args[0]
-            when (a) {
+            val side = args[0]
+            when (side) {
                 "client" -> launchClient()
                 "server" -> launchServer()
             }
         } else {
-            Logger.error("Invalid arguments: $args")
+            Logger.error("Invalid arguments: ${Arrays.toString(args)}")
         }
     }
 
     fun launchClient() {
         Pigeon.Logger.info("Starting Client in LegacyLauncher")
-        PigeonTweakClass.JAR_LOCATION = PigeonTweakClass.JarLocation.MAPPED_MERGED
+        PigeonTweakClass.JAR_LOCATION = PigeonTweakClass.JarLocation.CLIENT
         PigeonTweakClass.LAUNCH_TARGET = "net.minecraft.client.MinecraftClient"
-        Launch.main(arrayOf("--tweakClass", PigeonTweakClass::class.java.name))
+        launch()
     }
 
     fun launchServer() {
         Pigeon.Logger.info("Starting Server in LegacyLauncher")
-        PigeonTweakClass.JAR_LOCATION = PigeonTweakClass.JarLocation.MAPPED_MERGED
+        PigeonTweakClass.JAR_LOCATION = PigeonTweakClass.JarLocation.SERVER
         PigeonTweakClass.LAUNCH_TARGET = "net.minecraft.server.MinecraftServer"
+        launch()
+    }
+
+    fun launch() {
+        SharedLibraryLoader.load()
         Launch.main(arrayOf("--tweakClass", PigeonTweakClass::class.java.name))
     }
 
@@ -129,17 +136,15 @@ object Pigeon {
 class PigeonTweakClass : ITweaker {
 
     // TODO: get this from Gradle? Remove all together?
-    enum class JarLocation(val url: String) {
-        CLIENT("build/minecraft/minecraft_client.jar"),
-        SERVER("build/minecraft/minecraft_server.jar"),
-        MERGED("build/minecraft/minecraft_merged.jar"),
-        MAPPED_MERGED("build/minecraft/minecraft_merged_mapped.jar")
+    enum class JarLocation(val url: String, val side: MixinEnvironment.Side) {
+        CLIENT("build/minecraft/minecraft_mapped_client.jar", MixinEnvironment.Side.CLIENT),
+        SERVER("build/minecraft/minecraft_Mapped_server.jar", MixinEnvironment.Side.SERVER),
     }
 
     companion object {
         var LAUNCH_TARGET = "null (user needs to set this)"
 
-        var JAR_LOCATION = JarLocation.MAPPED_MERGED
+        var JAR_LOCATION = JarLocation.CLIENT
     }
 
     override fun getLaunchTarget(): String = LAUNCH_TARGET
@@ -147,13 +152,14 @@ class PigeonTweakClass : ITweaker {
     override fun injectIntoClassLoader(classLoader: LaunchClassLoader) {
         Pigeon.Logger.info("Initializing Mixins")
         MixinBootstrap.init()
-        MixinEnvironment.getDefaultEnvironment().side = MixinEnvironment.Side.CLIENT
+        MixinEnvironment.getDefaultEnvironment().side = JAR_LOCATION.side
 
         // Get Pigeon Mixin Configs
         val mixinConfigsLocation = javaClass.getResource("/")
         val mixinPath = Paths.get(mixinConfigsLocation.toURI()).parent
         Files.walk(mixinPath, 3).forEach {
-            if (it.toFile().isFile) {
+            var file = it.toFile()
+            if (file.isFile && file.name.startsWith("mixins.") && file.name.endsWith(".json")) {
                 Pigeon.Logger.info("Found Mixin Config: ${it.fileName}")
                 Mixins.addConfiguration(it.fileName.toString())
             }

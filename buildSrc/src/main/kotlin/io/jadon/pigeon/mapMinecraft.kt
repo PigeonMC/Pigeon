@@ -14,123 +14,92 @@ open class MapMinecraftPlugin : Plugin<Project> {
 }
 
 open class MapMinecraftExtension {
-    var tsrgFile: String = "null"
+    var clientMappings: String = "null"
     var serverToClientObf: String = "null"
-    var clientClassOverride: String = "null"
+    var serverMappings: String = "null"
     var clientJar: String = "build/minecraft/minecraft_client.jar"
     var serverJar: String = "build/minecraft/minecraft_server.jar"
-    var mergedJar: String = "build/minecraft/minecraft_merged.jar"
-    var mappedJar: String = "build/minecraft/minecraft_merged_mapped.jar"
-    var force: Boolean = false
+    var clientMappedJar: String = "build/minecraft/minecraft_client_mapped.jar"
+    var serverMappedJar: String = "build/minecraft/minecraft_server_mapped.jar"
 }
 
 open class MapMinecraftTask : DefaultTask() {
     @TaskAction
     fun mapMinecraft() {
-//        println("Generating")
-//        val classFile = File("mappings/mcp/classes.csv")
-//        val (serverOnlyClasses, serverToClientMappings) = MappingsGenerator.getClassMappings(classFile)
-//        val combinedMappings: MutableMap<String, String> = serverOnlyClasses.mapNotNull {
-//            if (it == "MinecraftServer") null else it to "s_$it"
-//        }.toMap().toMutableMap()
-//        combinedMappings.putAll(serverToClientMappings)
-
-//        val fieldFile = File("mappings/mcp/fields.csv")
-//        val mappings = MappingsGenerator.generateFieldMappings(fieldFile)
-//
-//        val seenClasses = mutableListOf<String>()
-//        mappings.forEach { serverObf, clientObf ->
-//            val serverClass = serverObf.split(".")[0]
-//            val clientClass = clientObf.split(".")[0]
-//            val serverField = serverObf.split(".")[1]
-//            val clientField = clientObf.split(".")[1]
-//            if (!seenClasses.contains(serverClass)) {
-//                println("$serverClass $clientClass")
-//                seenClasses.add(serverClass)
-//            }
-//            println("    $serverField $clientField")
-//        }
-
-//        val methodFile = File("mappings/mcp/methods.csv")
-//        val mappings = MappingsGenerator.generateMethodMappings(methodFile)
-//
-//        val seenClasses = mutableListOf<String>()
-//        mappings.forEach { serverObf, clientObf ->
-//            val serverClass = serverObf.split(".")[0]
-//            val clientClass = clientObf.split(".")[0]
-//            val serverMethodName = serverObf.split(".")[1]
-//            val clientMethodName = clientObf.split(".")[1]
-//            val serverMethodSig = serverObf.split(".")[2]
-//            val clientMethodSig = clientObf.split(".")[2]
-//            if (!seenClasses.contains(serverClass)) {
-//                println("$serverClass $clientClass")
-//                seenClasses.add(serverClass)
-//            }
-//            println("    $serverMethodName $serverMethodSig $clientMethodName")
-//        }
-//        System.exit(-1)
-
         println("Generating Merged & Mapped Minecraft Jar")
         val extension = project.extensions.getByType(MapMinecraftExtension::class.java)
-        println("Using mappings: ${extension.tsrgFile}")
+        println("Using mappings: ${extension.clientMappings}")
         println("Vanilla Client Jar: ${extension.clientJar}")
         println("Vanilla Server Jar: ${extension.serverJar}")
-        println("Merged Jar: ${extension.mergedJar}")
-        println("Mapped Jar: ${extension.mappedJar}")
+        println("Mapped Client Jar: ${extension.clientMappedJar}")
+        println("Mapped Server Jar: ${extension.serverMappedJar}")
 
-        val serverToClientObfFile = File(extension.serverToClientObf)
         val clientFile = File(extension.clientJar)
         val serverFile = File(extension.serverJar)
-        val mergedFile = File(extension.mergedJar)
-        val mappedFile = File(extension.mappedJar)
+        val clientMappedJar = File(extension.clientMappedJar)
+        val serverMappedJar = File(extension.serverMappedJar)
 
-        if (!clientFile.exists()) {
-            println("Downloading Vanilla Jar")
-            JarManager.downloadVanillaClient(clientFile.path)
+        if (!clientFile.exists() || !serverFile.exists()) {
+            println("Downloading Vanilla Jars")
+            JarManager.downloadVanillaFiles(clientFile.path, serverFile.path)
         }
 
-        if (!serverFile.exists()) {
-            println("ERROR: You're missing a Beta 1.7.3 Server jar!")
-            System.exit(-1)
-        }
+        val clientMappingsFile = File(extension.clientMappings)
+        if (!clientMappingsFile.exists()) throw IllegalArgumentException("Can't find client mappings file: ${clientMappingsFile.path}")
 
-        val combinedMappings = TSrgUtil.parseTSrg(serverToClientObfFile.readLines())
-        val serverOnlyClasses = combinedMappings.filter { it.deobf.startsWith("s_") }.map { it.deobf }
-        val serverToClientMappingsFile = File.createTempFile("tempMinecraftMappings", ".srg")
-        TSrgUtil.toSrg(combinedMappings, serverToClientMappingsFile)
+        val serverToClientObfFile = File(extension.serverToClientObf)
+        if (!serverToClientObfFile.exists()) throw IllegalArgumentException("Can't find server to client mappings file: ${serverToClientObfFile.path}")
 
-        // Get Client Class Overrides
-        val clientClassOverrideFile = File(extension.clientClassOverride)
-        val clientClassOverrides: List<String> = if (clientClassOverrideFile.exists() && clientClassOverrideFile.isFile) {
-            val overrides = mutableListOf<String>()
-            val lines = clientClassOverrideFile.readLines()
-            lines.forEach {
-                if (it.trim().startsWith("#") || it.trim().isEmpty()) { // comment
-                } else overrides.add(it.split(" ")[0])
+        val serverMappingsFile = File(extension.serverMappings)
+        if (!serverMappingsFile.exists()) throw IllegalArgumentException("Can't find server mappings file: ${serverMappingsFile.path}")
+
+        val tempClientSrgMappings = File("build/minecraft/tempMinecraftClientMappings.srg")
+        val tempServerSrgMappings = File("build/minecraft/tempMinecraftServerMappings.srg")
+
+        println("Converting Client TSRG to SRG")
+        val clientMappings = TSrgUtil.toSrg(clientMappingsFile, tempClientSrgMappings).toMutableList()
+        val serverToClientMappings = TSrgUtil.parseTSrg(serverToClientObfFile.readLines()).toMutableList()
+        val serverOnlyMappings = TSrgUtil.parseTSrg(serverMappingsFile.readLines())
+
+        // convert client mappings to server mappings using the serverToClientObf mappings
+        println("Creating Server Mappings")
+        val classNames = clientMappings.map { it.obf to it.deobf }.toMap()
+        val serverMappings = clientMappings.mapNotNull { clientClass ->
+            if (!clientClass.deobf.contains("server")) {
+                clientClass.deobf = clientClass.deobf.replace("net/minecraft", "net/minecraft/server")
             }
-            overrides
-        } else listOf()
+            serverToClientMappings.find { serverToClientMapping ->
+                serverToClientMapping.deobf == clientClass.obf
+            }?.let { serverToClientClass ->
+                val serverFields = clientClass.fields.mapNotNull { clientField ->
+                    serverToClientClass.fields.find { it.deobf == clientField.obf }?.let { serverField ->
+                        clientField.obf = serverField.obf
+                        clientField
+                    }
+                }.toMutableList()
+                val serverMethods = clientClass.methods.mapNotNull { clientMethod ->
+                    serverToClientClass.methods.find {
+                        it.deobf == clientMethod.obf && it.getDeobfSig(classNames) == clientMethod.obfSig
+                    }?.let { serverMethod ->
+                        clientMethod.obf = serverMethod.obf
+                        clientMethod.obfSig = serverMethod.getDeobfSig(classNames)
+                        clientMethod
+                    }
+                }.toMutableList()
+                TSrgUtil.Clazz(serverToClientClass.obf, clientClass.deobf, serverFields, serverMethods)
+            }
+        }.toMutableList()
+        serverMappings.addAll(serverOnlyMappings)
 
-        println("Merging Jars")
-        JarManager.mergeJars(
-                clientFile,
-                serverFile,
-                mergedFile,
-                serverToClientMappingsFile,
-                serverOnlyClasses,
-                clientClassOverrides
-        )
+        TSrgUtil.toSrg(serverMappings, tempServerSrgMappings)
 
-        val tsrgFile = File(extension.tsrgFile)
-        if (!tsrgFile.exists()) throw IllegalArgumentException("Can't find mappings file: ${tsrgFile.path}")
+        println("Mapping Client Jar (might take a long time)")
+        JarManager.remapJar(clientFile.path, clientMappedJar.path, tempClientSrgMappings.path)
+        JarManager.transformJar(clientMappedJar, clientMappedJar)
 
-        val tempSrgFile = File.createTempFile("tempMinecraftMappings", ".srg")
-
-        println("Converting TSRG to SRG")
-        TSrgUtil.toSrg(tsrgFile, tempSrgFile)
-
-        println("Mapping Jar (might take a long time)")
-        JarManager.remapJar(mergedFile.path, mappedFile.path, tempSrgFile.path)
+        println("Mapping Server Jar (will take a similar amount of time)")
+        JarManager.remapJar(serverFile.path, serverMappedJar.path, tempServerSrgMappings.path)
+        JarManager.transformJar(serverMappedJar, serverMappedJar)
 
         println("Mapping completed")
     }
